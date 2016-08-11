@@ -11,10 +11,6 @@
 	],
 	"autoload":
 	{
-		"files":
-		[
-			"src/initialize.php"
-		],
 		"psr-4": {
 			"TeedCss\\": ""
 		}
