@@ -1,11 +1,23 @@
 {
-    "name": "tadeubarbosa/teed-css",
-    "description": "Criação de css.",
-    "authors":
-  	[
-    		{
-    			"name":"Tadeu Barbosa",
-    			"email":"tadeufbarbosa@gmail.com"
-    		}
-    ]
+	"name": "tadeubarbosa/teed-css",
+	"description": "Criação de css.",
+	"authors":
+	[
+		{
+			"name":"Tadeu Barbosa",
+			"email":"tadeufbarbosa@gmail.com",
+			"homepage": "http://tadeubarbosa.com.br"
+		}
+	],
+	"autoload":
+	{
+		"files":
+		[
+			"src/initialize.php"
+		],
+		"psr-4": {
+			"TeedCss\\": ""
+		}
+	},
+	"minimum-stability": "dev"
 }
