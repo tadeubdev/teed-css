@@ -11,9 +11,14 @@
 	],
 	"autoload":
 	{
-		"psr-4": {
-			"TeedCss\\": "core/"
-		}
+		"psr-4":
+		{
+			"": "core/"
+		},
+		"classmap":
+		[
+			"core/"
+		]
 	},
 	"minimum-stability": "dev"
 }
