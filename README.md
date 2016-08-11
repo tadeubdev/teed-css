@@ -1,2 +1,7 @@
 # teed-css
-TeedCss
+
+Ainda em criação...
+
+----------
+
+º Implemenação do leitor de variáveis
