@@ -56,7 +56,7 @@
 			}
 
 			# Busca pelos arquivos teedcss
-			$FilesTeedCss = glob(self::$Paths['teedcss'] . "/{*,**/*}.teedcss", GLOB_BRACE);
+			$FilesTeedCss = glob(self::$Paths['teedcss'] . "/{**/*,*}.teedcss", GLOB_BRACE);
 
 			foreach($FilesTeedCss as $PathToFile)
 			{
@@ -65,6 +65,9 @@
 				# busca o arquivo e coloca em $Data
 				$Data = \Files::getData($PathToFile, true);
 				$Data = str_replace(array("\n","\r"), "", $Data);
+
+				$VariableOldName = null;
+				$VariableOldValue = null;
 
 				for($DataNumber=0; $DataNumber<=count($Data)-1; $DataNumber++)
 				{
@@ -110,138 +113,160 @@
 							$AttrName = str_replace("\t", "", $Matches[0]);
 							$AttrValue = str_replace("\t", "", $Matches[1]);
 
-							# Matches in Value name to find variables data
-							preg_match("/(\\$([a-zA-Z0-9\-_]{1,}))/", $AttrValue, $Matches);
+							# setar nova variável
+							preg_match("/\\$([a-zA-Z0-9\-_]{1,})/", $AttrName, $Matches);
 
-							if( isset($Matches[2]))
+							if( isset($Matches[0]))
 							{
-								$Variable = $Matches[2];
+								$Variable = $Matches[1];
 
-								if( strlen($Variable) && isset(self::$Variables[$Variable]) )
+								$VariableOldName = $Variable;
+								$VariableOldValue = self::$Variables[$Variable];
+
+								self::$Variables[$Variable] = $AttrValue;
+							}
+							else
+							{
+
+								# buscar variável do valor e usá-la
+								preg_match("/\\$([a-zA-Z0-9\-_]{1,})/", $AttrValue, $Matches);
+
+								if( isset($Matches[1]))
 								{
-									$AttrValue = str_replace($Matches[1], self::$Variables[$Variable], $AttrValue);
+									$Variable = $Matches[1];
+
+									if( strlen($Variable) && isset(self::$Variables[$Variable]) )
+									{
+										$AttrValue = str_replace($Matches[0], self::$Variables[$Variable], $AttrValue);
+									}
+								}
+
+								# https://github.com/tadeubarbosa/teed-css/wiki/Fun%C3%A7%C3%B5es
+								if( preg_match("/(sum|subtract|divide|multiply|dump)\((.*)\)/", $AttrValue, $AttrMatch))
+								{
+									$Values = explode(" ", $AttrMatch[2]);
+									$Function = null;
+									$Result = 0;
+
+									switch($AttrMatch[1])
+									{
+										#
+										case 'sum':
+											if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
+											{
+												$Function = $Matches[0];
+											}
+
+											foreach($Values as $Value)
+											{
+
+												if( preg_match("/[a-zA-Z]{1,}/", $Value, $Matches))
+												{
+													$Function = $Matches[0];
+												}
+
+												$Result += $Value;
+											}
+											break;
+										#
+										case 'subtract':
+											$Result = $Values[0];
+
+											if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
+											{
+												$Function = $Matches[0];
+											}
+
+											for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
+											{
+
+												if( preg_match("/[a-zA-Z]{1,}/", $Values, $Matches))
+												{
+													$Function = $Matches[0];
+												}
+
+												$Result -= $Values[$xNumber];
+											}
+											break;
+										#
+										case 'divide':
+											$Result = $Values[0];
+
+											if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
+											{
+												$Function = $Matches[0];
+											}
+
+											for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
+											{
+
+												if( preg_match("/[a-zA-Z]{1,}/", $Values[$xNumber], $Matches))
+												{
+													$Function = $Matches[0];
+												}
+
+												$Result /= $Values[$xNumber];
+											}
+											break;
+										#
+										case 'multiply':
+											$Result = $Values[0];
+
+											if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
+											{
+												$Function = $Matches[0];
+											}
+
+											for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
+											{
+
+												if( preg_match("/[a-zA-Z]{1,}/", $Values[$xNumber], $Matches))
+												{
+													$Function = $Matches[0];
+												}
+
+												$Result *= $Values[$xNumber];
+											}
+											break;
+										#
+										case 'dump':
+											dump("Dump");
+											dump("File: {$PathToFile}");
+											dump("Line: {$y}");
+											dump($AttrMatch[2]);
+
+											exit();
+											break;
+									}
+
+									$AttrValue = str_replace($AttrMatch[0], $Result.$Function, $AttrValue);
+
+								}
+
+								if( $AttrName == "extends")
+								{
+
+									if(isset(self::$ArrayCss[$AttrValue]))
+									{
+										self::$ArrayCss[self::$ElementName] = array_merge(self::$ArrayCss[self::$ElementName], self::$ArrayCss[$AttrValue]);
+									}
+									else
+									{
+										self::ElementNotFound($AttrValue, $PathToFile, $y + 1);
+										exit;
+									}
+
+								} else {
+									self::$ArrayCss[self::$ElementName][$AttrName] = $AttrValue;
 								}
 							}
 
-							# https://github.com/tadeubarbosa/teed-css/wiki/Fun%C3%A7%C3%B5es
-							if( preg_match("/(sum|subtract|divide|multiply|dump)\((.*)\)/", $AttrValue, $AttrMatch))
-							{
-								$Values = explode(" ", $AttrMatch[2]);
-								$Function = null;
-								$Result = 0;
-
-								switch($AttrMatch[1])
-								{
-									#
-									case 'sum':
-										if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
-										{
-											$Function = $Matches[0];
-										}
-
-										foreach($Values as $Value)
-										{
-
-											if( preg_match("/[a-zA-Z]{1,}/", $Value, $Matches))
-											{
-												$Function = $Matches[0];
-											}
-
-											$Result += $Value;
-										}
-										break;
-									#
-									case 'subtract':
-										$Result = $Values[0];
-
-										if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
-										{
-											$Function = $Matches[0];
-										}
-
-										for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
-										{
-
-											if( preg_match("/[a-zA-Z]{1,}/", $Values, $Matches))
-											{
-												$Function = $Matches[0];
-											}
-
-											$Result -= $Values[$xNumber];
-										}
-										break;
-									#
-									case 'divide':
-										$Result = $Values[0];
-
-										if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
-										{
-											$Function = $Matches[0];
-										}
-
-										for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
-										{
-
-											if( preg_match("/[a-zA-Z]{1,}/", $Values[$xNumber], $Matches))
-											{
-												$Function = $Matches[0];
-											}
-
-											$Result /= $Values[$xNumber];
-										}
-										break;
-									#
-									case 'multiply':
-										$Result = $Values[0];
-
-										if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
-										{
-											$Function = $Matches[0];
-										}
-
-										for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
-										{
-
-											if( preg_match("/[a-zA-Z]{1,}/", $Values[$xNumber], $Matches))
-											{
-												$Function = $Matches[0];
-											}
-
-											$Result *= $Values[$xNumber];
-										}
-										break;
-									#
-									case 'dump':
-										dump("Dump");
-										dump("File: {$PathToFile}");
-										dump("Line: {$y}");
-										dump($AttrMatch[2]);
-
-										exit();
-										break;
-								}
-
-								$AttrValue = str_replace($AttrMatch[0], $Result.$Function, $AttrValue);
-
-							}
-
-							if( $AttrName == "extends")
-							{
-
-								if(isset(self::$ArrayCss[$AttrValue]))
-								{
-									self::$ArrayCss[self::$ElementName] = array_merge(self::$ArrayCss[self::$ElementName], self::$ArrayCss[$AttrValue]);
-								}
-								else
-								{
-									self::ElementNotFound($AttrValue, $PathToFile, $y + 1);
-									exit;
-								}
-
-							} else {
-								self::$ArrayCss[self::$ElementName][$AttrName] = $AttrValue;
-							}
 						}
+					}
+
+					if($VariableOldName)
+					{
+						self::$Variables[$VariableOldName] = $VariableOldValue;
 					}
 				}
 
