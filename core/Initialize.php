@@ -272,15 +272,26 @@
 
 			#
 
-			$FileName = self::$Paths['css'] . "/template.css";
-			$FileOpen = fopen($FileName, 'w+');
-			fwrite($FileOpen, self::$CssResponse);
-			fclose($FileOpen);
+			self::PutInTemplate('template');
+		}
 
-			$FileName = self::$Paths['css'] . "/template.min.css";
-			$FileOpen = fopen($FileName, 'w+');
-			fwrite($FileOpen, self::$CssCompressed);
-			fclose($FileOpen);
+		public static function PutInTemplate($PathToFile, $Minify=null)
+		{
+			try
+			{
+				$FileName = sprintf("%s/%s%s.css", self::$Paths['css'], $PathToFile, $Minify);
+				$FileOpen = fopen($FileName, "w");
+				fwrite($FileOpen, self::$CssResponse);
+				fclose($FileOpen);
+			} catch(Exception $e)
+			{
+				exit( dump($e->getMessage()));
+			}
+
+			if( !$Minify)
+			{
+				self::PutInTemplate($PathToFile, ".min");
+			}
 		}
 
 		public static function ElementNotFound($Name, $File, $DataLine)
