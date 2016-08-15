@@ -4,6 +4,14 @@
 
 	class Initialize
 	{
+		# nome do arquivo output
+		public static $PathToFile = 'template';
+		# tabulação estilo
+		public static $Tabulation = "\t";
+		# modo de chamada do elemento pai
+		public static $ChamadaDoElementoPai = "&";
+		# prefix das funções teed
+		public static $FunctionsTeedCssBefore = "_";
 		# Pasta onde se encontra os arquivos teedcss
 		public static $Paths = array();
 		# Configurações dos arquivos .conf
@@ -15,17 +23,14 @@
 		# Resposta do css compressado
 		public static $CssCompressed;
 		# Array com dados do css
-		public static $ArrayCss = array();
+		public static $CssTextArray = array();
 		# nome do elemento css
 		public static $ElementName = null;
+		# adiciona itens ao array para estender mais tarde
+		public static $ExtendsArray = array();
 
-		# inicia o aplicativo
-		public static function Start()
+		public static function ConfigPaths()
 		{
-
-			# se não for local ele não continua
-			if(\App::getEnv()->name != 'local') return;
-
 			# busca as variáveis globais
 			$GlobalData = \Files::getData('globals.php');
 
@@ -34,273 +39,232 @@
 			{
 				self::$Paths[$Name] = \App::getUri() . $Data;
 			}
+		}
 
-			# Busca arquivos de Configurações
-			$ConfigFiles = glob(self::$Paths['teedcss'] . "/{*,**/*}.conf", GLOB_BRACE);
+		# inicia o aplicativo
+		public static function Start()
+		{
+			# if(\App::getEnv()->name == 'local')
 
-			foreach($ConfigFiles as $PathToFile)
-			{
-				# Busca pelos dados a partir do caminho
-				$Data = \Files::getData($PathToFile, true);
-
-				foreach($Data as $Line)
-				{
-					# Se começar por # é um comentário, passa para o próximo
-					if( in_array(substr($Line, 0, 1), array("\r","#"))) continue;
-
-					$Item = explode(" ", $Line, 2);
-					$Name = trim($Item[0]);
-					$Value = trim($Item[1]);
-					self::$Variables[$Name] = $Value;
-				}
-			}
+			self::ConfigPaths();
 
 			# Busca pelos arquivos teedcss
-			$FilesTeedCss = glob(self::$Paths['teedcss'] . "/{*,**/*}.teedcss", GLOB_BRACE);
+			$FilesTeedCss = glob(self::$Paths['teedcss'] . "/{**/*,*}.teedcss", GLOB_BRACE);
 
+			# faz a leitura de um arquivo teedcss por vez
 			foreach($FilesTeedCss as $PathToFile)
 			{
-				# faz a leitura de um arquivo teedcss por vez
 
-				# busca o arquivo e coloca em $Data
-				$Data = \Files::getData($PathToFile, true);
-				$Data = str_replace(array("\n","\r"), "", $Data);
+				# busca o arquivo e coloca em $FileTeedCss
+				$FileTeedCss = \Files::getData($PathToFile, true);
+				$FileTeedCss = str_replace(array("\n","\r"), "", $FileTeedCss);
 
-				for($DataNumber=0; $DataNumber<=count($Data)-1; $DataNumber++)
+				for($IntFileTeedLoop=0; $IntFileTeedLoop<=count($FileTeedCss)-1; $IntFileTeedLoop++)
 				{
 					# linha do array Data
-					$DataLine = $Data[$DataNumber];
+					$FileTeedCssLine = $FileTeedCss[$IntFileTeedLoop];
 
-					if( strlen( trim( $DataLine)) == 0) continue;
+					# se a linha estiver vazia vai para a próxima
+					if( strlen( trim( $FileTeedCssLine)) == 0 || substr($FileTeedCssLine, 0, 2) == '//') continue;
 
-					if( substr_count($DataLine,"\t") == 0)
+					# é uma variável, incluir
+					$VerifyIfIsVariable = self::VerifyIfIsVariable($FileTeedCssLine);
+
+					# se for uma variável passe para o próximo
+					if( $VerifyIfIsVariable) continue;
+
+					# se não houver espaço no inicio é um elemento
+					# ler as próximas linhas
+					if( substr_count($FileTeedCssLine,self::$Tabulation) == 0)
 					{
-						self::$ArrayCss[$DataLine] = array();
-						self::$ElementName = $DataLine;
 
-						for($y=$DataNumber+1; $y<=count($Data)-1; $y++)
+						# adiciona um novo elemento ao array de css
+						self::$CssTextArray[$FileTeedCssLine] = array();
+						# seta o nome do elemento atual
+						self::$ElementName = $FileTeedCssLine;
+
+						# faz a leitura das próximas linhas quando é um novo elemento
+						for($IntLineTeedLoop=$IntFileTeedLoop+1; $IntLineTeedLoop<=count($FileTeedCss)-1; $IntLineTeedLoop++)
 						{
-							if( strlen( trim( $Data[$y])) == 0) continue;
+							$TeedCssLineChild = $FileTeedCss[$IntLineTeedLoop];
 
-							if( substr_count($Data[$y], "\t") == 0)
+							# linha vazia, próximo
+							if( strlen( trim( $TeedCssLineChild)) == 0) continue;
+
+							# verifica se é um novo elemento, caso seja ele para o laço de repetição
+							if( substr_count("/{$TeedCssLineChild}/", self::$Tabulation) == 0) break;
+
+							# verifica se não é a última linha do arquivo
+							if( $IntLineTeedLoop!=count($FileTeedCss)-1 &&
+
+								# verifica se a próxima linha é um filho
+								substr_count($FileTeedCss[$IntLineTeedLoop+1], self::$Tabulation) > substr_count($TeedCssLineChild, self::$Tabulation))
 							{
-								$y = count($Data)-1;
-								break;
-							}
 
-							if( $y!=count($Data)-1 && substr_count($Data[$y+1], "\t") > substr_count($Data[$y], "\t") )
-							{
-
-								if(preg_match("/(\&)/", $Data[$y]))
+								# verifica se é existe uma chamada para o pai
+								if(preg_match("/".self::$ChamadaDoElementoPai."/", $TeedCssLineChild))
 								{
-									$SubElement = str_replace("&", self::$ElementName, $Data[$y]);
-									$SubElement = str_replace("\t", "", $SubElement);
-								} else {
-									$SubElement = str_replace("\t", "", $Data[$y]);
-									$SubElement = "{$DataLine} {$SubElement}";
-								}
 
-								self::$ArrayCss[$SubElement] = array();
-								self::$ElementName = $SubElement;
-								$y++;
-							}
+									$TeedCssLineChild = trim($TeedCssLineChild);
 
-							$Matches = explode(" ", $Data[$y], 2);
+									$Elements = explode(",", self::$ElementName);
 
-							$AttrName = str_replace("\t", "", $Matches[0]);
-							$AttrValue = str_replace("\t", "", $Matches[1]);
+									foreach($Elements as $Name => $Value)
+									{
+										$Elements[$Name] = str_replace(self::$ChamadaDoElementoPai, $Value, $TeedCssLineChild);
+									}
 
-							# Matches in Value name to find variables data
-							preg_match("/(\\$([a-zA-Z0-9\-_]{1,}))/", $AttrValue, $Matches);
-
-							if( isset($Matches[2]))
-							{
-								$Variable = $Matches[2];
-
-								if( strlen($Variable) && isset(self::$Variables[$Variable]) )
-								{
-									$AttrValue = str_replace($Matches[1], self::$Variables[$Variable], $AttrValue);
-								}
-							}
-
-							# https://github.com/tadeubarbosa/teed-css/wiki/Fun%C3%A7%C3%B5es
-							if( preg_match("/(sum|subtract|divide|multiply|dump)\((.*)\)/", $AttrValue, $AttrMatch))
-							{
-								$Values = explode(" ", $AttrMatch[2]);
-								$Function = null;
-								$Result = 0;
-
-								switch($AttrMatch[1])
-								{
-									#
-									case 'sum':
-										if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
-										{
-											$Function = $Matches[0];
-										}
-
-										foreach($Values as $Value)
-										{
-
-											if( preg_match("/[a-zA-Z]{1,}/", $Value, $Matches))
-											{
-												$Function = $Matches[0];
-											}
-
-											$Result += $Value;
-										}
-										break;
-									#
-									case 'subtract':
-										$Result = $Values[0];
-
-										if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
-										{
-											$Function = $Matches[0];
-										}
-
-										for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
-										{
-
-											if( preg_match("/[a-zA-Z]{1,}/", $Values, $Matches))
-											{
-												$Function = $Matches[0];
-											}
-
-											$Result -= $Values[$xNumber];
-										}
-										break;
-									#
-									case 'divide':
-										$Result = $Values[0];
-
-										if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
-										{
-											$Function = $Matches[0];
-										}
-
-										for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
-										{
-
-											if( preg_match("/[a-zA-Z]{1,}/", $Values[$xNumber], $Matches))
-											{
-												$Function = $Matches[0];
-											}
-
-											$Result /= $Values[$xNumber];
-										}
-										break;
-									#
-									case 'multiply':
-										$Result = $Values[0];
-
-										if( preg_match("/[a-zA-Z]{1,}/", $Values[0], $Matches))
-										{
-											$Function = $Matches[0];
-										}
-
-										for($xNumber=1; $xNumber<=count($Values)-1; $xNumber++)
-										{
-
-											if( preg_match("/[a-zA-Z]{1,}/", $Values[$xNumber], $Matches))
-											{
-												$Function = $Matches[0];
-											}
-
-											$Result *= $Values[$xNumber];
-										}
-										break;
-									#
-									case 'dump':
-										dump("Dump");
-										dump("File: {$PathToFile}");
-										dump("Line: {$y}");
-										dump($AttrMatch[2]);
-
-										exit();
-										break;
-								}
-
-								$AttrValue = str_replace($AttrMatch[0], $Result.$Function, $AttrValue);
-
-							}
-
-							if( $AttrName == "extends")
-							{
-
-								if(isset(self::$ArrayCss[$AttrValue]))
-								{
-									self::$ArrayCss[self::$ElementName] = array_merge(self::$ArrayCss[self::$ElementName], self::$ArrayCss[$AttrValue]);
+									$SubElement = join($Elements,",");
 								}
 								else
 								{
-									self::ElementNotFound($AttrValue, $PathToFile, $y + 1);
-									exit;
+									$SubElement = str_replace(self::$Tabulation, "", $TeedCssLineChild);
+									$SubElement = "{$FileTeedCssLine} {$SubElement}";
 								}
 
-							} else {
-								self::$ArrayCss[self::$ElementName][$AttrName] = $AttrValue;
+								self::$CssTextArray[$SubElement] = array();
+								self::$ElementName = $SubElement;
+								// $IntLineTeedLoop++;
 							}
+
+							# limpa a variável
+							$TeedCssLineChild = trim($TeedCssLineChild);
+
+							# busca pelos itens da string
+							$VariableMatches = explode(" ", $TeedCssLineChild, 2);
+
+							if( !isset($VariableMatches[1]) ) continue;
+
+							# nome e valor da string
+							$AttrName = str_replace(self::$Tabulation, "", $VariableMatches[0]);
+							$AttrValue = str_replace(self::$Tabulation, "", $VariableMatches[1]);
+
+							# buscar variável do Nome
+							$VerifyIfIsVariable = self::VerifyIfIsVariable($AttrName);
+
+							# se for uma variável passe para o próximo
+							if( $AttrName == "&" || $VerifyIfIsVariable) continue;
+
+							# buscar variável do Valor e substitui
+							$AttrValue = self::ReplaceVariableValue($AttrValue);
+
+							# busca pelas funções disponíveis em `Funtions`
+							$FunctionsTeedCss = get_class_methods(new Functions);
+							$FunctionsTeedCssString = join($FunctionsTeedCss, "|");
+							$FunctionsTeedCssString = str_replace(self::$FunctionsTeedCssBefore, "", $FunctionsTeedCssString);
+
+							# verifica se existe AttrName uma das funções acima
+							if( preg_match("/$FunctionsTeedCssString/", $AttrName, $AttrMatch))
+							{
+								$FunctionName = self::$FunctionsTeedCssBefore . "{$AttrName}";
+
+								Functions::{"_{$AttrName}"}(self::$ElementName, $AttrValue);
+
+								continue;
+							}
+
+							# verifica se existe AttrValue uma das funções acima
+							if( preg_match("/($FunctionsTeedCssString)\((.*)\)/", $AttrValue, $AttrMatch))
+							{
+								# necessári para a class Function
+								$AttrMatch[1] = self::$FunctionsTeedCssBefore . $AttrMatch[1];
+								$AttrMatch[2] = explode(" ", $AttrMatch[2]);
+
+								$Return = self::ReturnsFunctionsOptions($AttrMatch, $FileTeedCss[0]);
+								# expressão encontrada e substituido valor
+								$AttrValue = str_replace($AttrMatch[0], $Return, $AttrValue);
+							}
+
+							# adiciona o elemento a variável
+							self::$CssTextArray[self::$ElementName][$AttrName] = $AttrValue;
 						}
 					}
 				}
-
 			}
 
-			foreach(self::$ArrayCss as $Item => $Value)
+			# faz uma varedura pelo array de extends
+			foreach(self::$ExtendsArray as $ElementBefore => $ElementAfter)
 			{
-				if( empty($Value)) continue;
 
-				$Response = $Item;
-				$ResponseCompressed = $Item;
-
-				$Response .= "\r{\r";
-				$ResponseCompressed .= "{";
-
-				foreach($Value as $AttrName => $AttrValue)
+				# Faz uma varedura pelo array de css
+				foreach(self::$CssTextArray as $Name => $Value)
 				{
-					$Response .= "\t{$AttrName}: {$AttrValue};\r";
-					$ResponseCompressed .= "{$AttrName}:{$AttrValue};";
+
+					if( preg_match("/{$ElementAfter}(,|:)/", $Name) ||
+						preg_match("/{$ElementAfter}$/", $Name) )
+					{
+
+						$NewElementName = $Name;
+
+						if( !preg_match("/{$ElementBefore}/", $Name))
+						{
+							$NewElementName = "{$Name},{$ElementBefore}";
+
+							unset(self::$CssTextArray[$Name]);
+						}
+
+						if( preg_match("/:.*/", $Name, $Matches))
+						{
+							$NewElementName = str_replace($ElementBefore, "{$ElementBefore}{$Matches[0]}", $NewElementName);
+						}
+
+						self::$CssTextArray[$NewElementName] = $Value;
+					}
 				}
-
-				$Response .= "}\r\r";
-				$ResponseCompressed .= "}";
-
-				self::$CssResponse .= $Response;
-				self::$CssCompressed .= $ResponseCompressed;
 			}
 
-			#
-
-			$FileName = self::$Paths['css'] . "/template.css";
-			$FileOpen = fopen($FileName, 'w+');
-			fwrite($FileOpen, self::$CssResponse);
-			fclose($FileOpen);
-
-			$FileName = self::$Paths['css'] . "/template.min.css";
-			$FileOpen = fopen($FileName, 'w+');
-			fwrite($FileOpen, self::$CssCompressed);
-			fclose($FileOpen);
+			Finalize::PutInFiles();
 		}
 
-		public static function ElementNotFound($Name, $File, $DataLine)
+		# verifica se é uma variável e adiciona
+		public static function VerifyIfIsVariable($String)
 		{
-			$Response = null;
-			$Response .= "Element `{$Name}` not found! \n";
-			$Response .= "File: {$File} \n";
-			$Response .= "Line: {$DataLine} \n\n";
-
-			$File = \Files::getFile($File);
-			$LineElement = "";
-
-			for($x=($DataLine-5); $x<=($DataLine+4); $x++)
+			if( preg_match("/^(\\$[a-zA-Z0-9_-]{1,}) (.*)/", $String, $DataMatches))
 			{
-				if( !isset($File[$x])) continue;
+				self::$Variables[ $DataMatches[1] ] = $DataMatches[2];
+				return true;
+			}
+			return false;
+		}
 
-				$Response .= sprintf("%s. %s", ($x+1), $File[$x]);
+		# verifica se é uma variável e troca valor
+		public static function ReplaceVariableValue($String)
+		{
+
+			if( preg_match("/\\$[a-zA-Z0-9_-]{1,}/", $String, $Matches))
+			{
+				if(isset(self::$Variables[$Matches[0]]))
+				{
+					$String = str_replace($Matches[0], self::$Variables[$Matches[0]], $String);
+				}
 			}
 
-			dump($Response);
+			return $String;
+		}
+
+		public static function ReturnsFunctionsOptions($AttrExlode, $FunctionLine)
+		{
+			list($FunctionValue, $FunctionName, $AttrValues) = $AttrExlode;
+
+			$OperatorName = self::GetOperatorName($AttrValues[0]);
+
+			# primeiro valor do attr
+			$Result = $AttrValues[0];
+
+			$Result = Functions::{$FunctionName}($AttrValues, $Result, $FunctionValue);
+
+			return $Result . $OperatorName;
+		}
+
+		# return: px, cm
+		public static function GetOperatorName($String)
+		{
+			if( preg_match("/[a-zA-Z]{1,}/", $String, $OperatorMatch))
+			{
+				return $OperatorMatch[0];
+			}
+
+			return null;
 		}
 
 	}
