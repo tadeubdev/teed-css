@@ -1,0 +1,9 @@
+{
+  "name": "teed-css",
+  "version": "2.0.0",
+  "description": "A simple css compiler",
+  "main": "main.js",
+  "repository": "git@github.com:tadeubarbosa/teed-css.git",
+  "author": "Tadeu Barbosa <tadeufbarbosa@gmail.com>",
+  "license": "MIT"
+}
