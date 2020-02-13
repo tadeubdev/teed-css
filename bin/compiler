@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+
+class Compiler
+{
+  exec(file) {
+    console.log(`ok! I has compiled ${file}`);
+  }
+}
+
+module.exports = new Compiler;

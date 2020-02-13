@@ -2,8 +2,18 @@
   "name": "teed-css",
   "version": "2.0.0",
   "description": "A simple css compiler",
-  "main": "main.js",
+  "bin": {
+    "tcss": "./bin/tcss"
+  },
+  "scripts": {
+    "build": "babel dev -d bin"
+  },
   "repository": "git@github.com:tadeubarbosa/teed-css.git",
   "author": "Tadeu Barbosa <tadeufbarbosa@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "babel-preset-env": "^1.7.0",
+    "@babel/core": "^7.8.4"
+  }
 }

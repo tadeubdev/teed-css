@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+
+const Compiler = require('./compiler');
+let files = [];
+
+class CompileMany {
+  init(_files) {
+    files = _files;
+    return this;
+  }
+  run() {
+    files.forEach(file => (Compiler.exec(file)));
+  }
+}
+
+
+module.exports = new CompileMany;

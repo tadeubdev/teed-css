@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+
+const Compiler = require('./compiler');
+let file = null;
+
+class CompileOne {
+  init(_file) {
+    file = _file[0];
+    return this;
+  }
+  run() {
+    console.log(file);
+    Compiler.exec(file);
+  }
+}
+
+
+module.exports = new CompileOne;

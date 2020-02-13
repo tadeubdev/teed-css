@@ -1,0 +1,31 @@
+#!/usr/bin/env node
+const [,, ...args] = process.argv;
+
+const props = args.filter(value => (value.substr(0, 2) == '--' || value.substr(0,1)=='-'));
+
+const methodName = args.filter(item => (props.indexOf(item)<0))[0] || null;
+const data = args.filter(item => (props.indexOf(item)<0)).slice(1) || null;
+
+console.log(data);
+
+const methodsAvailables = {
+  'compile-many': './compile-many',
+  'cm'          : './compile-many',
+  //
+  'compile-one': './compile-one',
+  'compile'    : './compile-one',
+  'comp'       : './compile-one',
+  //
+  'watch'     : './watch',
+  'wt'        : './watch',
+  'watch-many': './watch-many',
+  'wm'        : './watch-many',
+  'watch-dir' : './watch-dir',
+  'wd'        : './watch-dir',
+};
+
+if (methodsAvailables[methodName] != undefined) {
+  require(methodsAvailables[methodName]).init(data).run()
+} else {
+  console.log(`Ooops! ${methodName} is not available!`);
+}
